@@ -2,207 +2,244 @@ import javax.swing.*;
 import java.awt.*;
 
 public class ColorPickerApp extends JFrame {
-    private final JPanel previewPanel;
-    private final JTextField rgbField, hsvField, cmykField;
 
-    private final ComponentControl rCtrl, gCtrl, bCtrl;
-    private final ComponentControl hCtrl, sCtrl, vCtrl;
-    private final ComponentControl cCtrl, mCtrl, yCtrl, kCtrl;
+    private boolean internalUpdate = false;
 
-    private boolean updating = false;
+    private JSlider rSlider, gSlider, bSlider;
+    private JTextField rField, gField, bField;
+
+    private JSlider cSlider, mSlider, ySlider, kSlider;
+    private JTextField cField, mField, yField, kField;
+
+    private JSlider hSlider, sSlider, vSlider;
+    private JTextField hField, sField, vField;
+
+    private JPanel colorDisplay;
 
     public ColorPickerApp() {
-        super("RGB / HSV / CMYK Color Picker");
-
-        previewPanel = new JPanel();
-        previewPanel.setPreferredSize(new Dimension(120, 120));
-
-        rgbField = new JTextField(25);
-        hsvField = new JTextField(25);
-        cmykField = new JTextField(25);
-        rgbField.setEditable(false);
-        hsvField.setEditable(false);
-        cmykField.setEditable(false);
-
-        // Контролы
-        rCtrl = new ComponentControl("R", 0, 255);
-        gCtrl = new ComponentControl("G", 0, 255);
-        bCtrl = new ComponentControl("B", 0, 255);
-
-        hCtrl = new ComponentControl("H", 0, 360);
-        sCtrl = new ComponentControl("S", 0, 100);
-        vCtrl = new ComponentControl("V", 0, 100);
-
-        cCtrl = new ComponentControl("C", 0, 100);
-        mCtrl = new ComponentControl("M", 0, 100);
-        yCtrl = new ComponentControl("Y", 0, 100);
-        kCtrl = new ComponentControl("K", 0, 100);
-
-        // Слушатели
-        rCtrl.addListener(() -> updateFromRGB(new Color(rCtrl.getValue(), gCtrl.getValue(), bCtrl.getValue())));
-        gCtrl.addListener(() -> updateFromRGB(new Color(rCtrl.getValue(), gCtrl.getValue(), bCtrl.getValue())));
-        bCtrl.addListener(() -> updateFromRGB(new Color(rCtrl.getValue(), gCtrl.getValue(), bCtrl.getValue())));
-
-        hCtrl.addListener(() -> {
-            if (!updating) {
-                float h = hCtrl.getValue();
-                float s = sCtrl.getValue() / 100f;
-                float v = vCtrl.getValue() / 100f;
-                Color c = Color.getHSBColor(h / 360f, s, v);
-                updateFromRGB(c);
-            }
-        });
-        sCtrl.addListener(hCtrl::trigger);
-        vCtrl.addListener(hCtrl::trigger);
-
-        cCtrl.addListener(() -> {
-            if (!updating) {
-                double c = cCtrl.getValue() / 100.0;
-                double m = mCtrl.getValue() / 100.0;
-                double y = yCtrl.getValue() / 100.0;
-                double k = kCtrl.getValue() / 100.0;
-                int r = (int) Math.round(255 * (1 - c) * (1 - k));
-                int g = (int) Math.round(255 * (1 - m) * (1 - k));
-                int b = (int) Math.round(255 * (1 - y) * (1 - k));
-                updateFromRGB(new Color(r, g, b));
-            }
-        });
-        mCtrl.addListener(cCtrl::trigger);
-        yCtrl.addListener(cCtrl::trigger);
-        kCtrl.addListener(cCtrl::trigger);
-
-        JButton chooseButton = new JButton("Выбрать цвет...");
-        chooseButton.addActionListener(e -> {
-            Color chosen = JColorChooser.showDialog(this, "Выбор цвета", previewPanel.getBackground());
-            if (chosen != null) updateFromRGB(chosen);
-        });
-
-        JPanel rgbPanel = new JPanel(new GridLayout(3, 1));
-        rgbPanel.setBorder(BorderFactory.createTitledBorder("RGB"));
-        rgbPanel.add(rCtrl.panel);
-        rgbPanel.add(gCtrl.panel);
-        rgbPanel.add(bCtrl.panel);
-
-        JPanel hsvPanel = new JPanel(new GridLayout(3, 1));
-        hsvPanel.setBorder(BorderFactory.createTitledBorder("HSV"));
-        hsvPanel.add(hCtrl.panel);
-        hsvPanel.add(sCtrl.panel);
-        hsvPanel.add(vCtrl.panel);
-
-        JPanel cmykPanel = new JPanel(new GridLayout(4, 1));
-        cmykPanel.setBorder(BorderFactory.createTitledBorder("CMYK"));
-        cmykPanel.add(cCtrl.panel);
-        cmykPanel.add(mCtrl.panel);
-        cmykPanel.add(yCtrl.panel);
-        cmykPanel.add(kCtrl.panel);
-
-        JPanel fields = new JPanel(new GridLayout(3, 1));
-        fields.add(rgbField);
-        fields.add(hsvField);
-        fields.add(cmykField);
-
-        JPanel sliders = new JPanel(new GridLayout(1, 3, 10, 10));
-        sliders.add(rgbPanel);
-        sliders.add(hsvPanel);
-        sliders.add(cmykPanel);
-
+        super("Цветовой конвертер");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
-        add(previewPanel, BorderLayout.WEST);
-        add(sliders, BorderLayout.CENTER);
-        add(fields, BorderLayout.EAST);
-        add(chooseButton, BorderLayout.SOUTH);
 
-        updateFromRGB(Color.RED);
+        // Палитра сверху
+        ColorPickerPanel palette = new ColorPickerPanel(360, 100, this::updateFromColor);
+        palette.setBorder(BorderFactory.createTitledBorder("Палитра"));
+        add(palette, BorderLayout.NORTH);
 
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        // Вкладки для моделей
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.addTab("RGB", createRGBPanel());
+        tabbedPane.addTab("CMYK", createCMYKPanel());
+        tabbedPane.addTab("HSV", createHSVPanel());
+
+        // Левая часть — вкладки, правая — текущий цвет
+        JPanel centerPanel = new JPanel(new BorderLayout(10, 10));
+        centerPanel.add(tabbedPane, BorderLayout.CENTER);
+
+        colorDisplay = new JPanel();
+        colorDisplay.setPreferredSize(new Dimension(150, 150));
+        colorDisplay.setBorder(BorderFactory.createTitledBorder("Текущий цвет"));
+        centerPanel.add(colorDisplay, BorderLayout.EAST);
+
+        add(centerPanel, BorderLayout.CENTER);
+
         pack();
         setLocationRelativeTo(null);
         setVisible(true);
     }
 
-    private void updateFromRGB(Color c) {
-        updating = true;
-        previewPanel.setBackground(c);
+    private JPanel createRGBPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
-        int r = c.getRed();
-        int g = c.getGreen();
-        int b = c.getBlue();
+        rSlider = createSlider(0, 255);
+        gSlider = createSlider(0, 255);
+        bSlider = createSlider(0, 255);
 
-        rgbField.setText(String.format("RGB: (%d, %d, %d)", r, g, b));
-        rCtrl.setValue(r);
-        gCtrl.setValue(g);
-        bCtrl.setValue(b);
+        rField = createTextField();
+        gField = createTextField();
+        bField = createTextField();
 
-        float[] hsv = Color.RGBtoHSB(r, g, b, null);
-        int h = Math.round(hsv[0] * 360);
-        int s = Math.round(hsv[1] * 100);
-        int v = Math.round(hsv[2] * 100);
-        hsvField.setText(String.format("HSV: (%d°, %d%%, %d%%)", h, s, v));
-        hCtrl.setValue(h);
-        sCtrl.setValue(s);
-        vCtrl.setValue(v);
+        panel.add(createLabeledSlider("Красный", rSlider, rField));
+        panel.add(createLabeledSlider("Зелёный", gSlider, gField));
+        panel.add(createLabeledSlider("Синий", bSlider, bField));
 
-        double rn = r / 255.0, gn = g / 255.0, bn = b / 255.0;
-        double k = 1 - Math.max(rn, Math.max(gn, bn));
-        double cmykC, cmykM, cmykY;
-        if (k < 1.0) {
-            cmykC = (1 - rn - k) / (1 - k);
-            cmykM = (1 - gn - k) / (1 - k);
-            cmykY = (1 - bn - k) / (1 - k);
-        } else {
-            cmykC = cmykM = cmykY = 0;
-        }
-        int ci = (int) Math.round(cmykC * 100);
-        int mi = (int) Math.round(cmykM * 100);
-        int yi = (int) Math.round(cmykY * 100);
-        int ki = (int) Math.round(k * 100);
-        cmykField.setText(String.format("CMYK: (%d%%, %d%%, %d%%, %d%%)", ci, mi, yi, ki));
-        cCtrl.setValue(ci);
-        mCtrl.setValue(mi);
-        yCtrl.setValue(yi);
-        kCtrl.setValue(ki);
+        addSync(rSlider, rField, this::updateFromRGB);
+        addSync(gSlider, gField, this::updateFromRGB);
+        addSync(bSlider, bField, this::updateFromRGB);
 
-        updating = false;
+        return panel;
     }
 
-    // Класс: слайдер + поле
-    private static class ComponentControl {
-        final JPanel panel;
-        final JSlider slider;
-        final JTextField field;
-        private Runnable listener;
+    private JPanel createCMYKPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 
-        ComponentControl(String name, int min, int max) {
-            panel = new JPanel(new BorderLayout());
-            slider = new JSlider(min, max);
-            field = new JTextField(4);
-            panel.add(new JLabel(name), BorderLayout.WEST);
-            panel.add(slider, BorderLayout.CENTER);
-            panel.add(field, BorderLayout.EAST);
+        cSlider = createSlider(0, 100);
+        mSlider = createSlider(0, 100);
+        ySlider = createSlider(0, 100);
+        kSlider = createSlider(0, 100);
 
-            slider.addChangeListener(e -> {
-                if (!slider.getValueIsAdjusting()) {
-                    field.setText(String.valueOf(slider.getValue()));
-                    if (listener != null) listener.run();
-                }
-            });
-            field.addActionListener(e -> {
+        cField = createTextField();
+        mField = createTextField();
+        yField = createTextField();
+        kField = createTextField();
+
+        panel.add(createLabeledSlider("Cyan", cSlider, cField));
+        panel.add(createLabeledSlider("Magenta", mSlider, mField));
+        panel.add(createLabeledSlider("Yellow", ySlider, yField));
+        panel.add(createLabeledSlider("Black", kSlider, kField));
+
+        addSync(cSlider, cField, this::updateFromCMYK);
+        addSync(mSlider, mField, this::updateFromCMYK);
+        addSync(ySlider, yField, this::updateFromCMYK);
+        addSync(kSlider, kField, this::updateFromCMYK);
+
+        return panel;
+    }
+
+    private JPanel createHSVPanel() {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+
+        hSlider = createSlider(0, 360);
+        sSlider = createSlider(0, 100);
+        vSlider = createSlider(0, 100);
+
+        hField = createTextField();
+        sField = createTextField();
+        vField = createTextField();
+
+        panel.add(createLabeledSlider("Hue", hSlider, hField));
+        panel.add(createLabeledSlider("Saturation", sSlider, sField));
+        panel.add(createLabeledSlider("Value", vSlider, vField));
+
+        addSync(hSlider, hField, this::updateFromHSV);
+        addSync(sSlider, sField, this::updateFromHSV);
+        addSync(vSlider, vField, this::updateFromHSV);
+
+        return panel;
+    }
+
+    private JSlider createSlider(int min, int max) {
+        JSlider slider = new JSlider(min, max);
+        slider.setMajorTickSpacing((max - min) / 5);
+        slider.setPaintTicks(true);
+        return slider;
+    }
+
+    private JTextField createTextField() {
+        return new JTextField(4);
+    }
+
+    private JPanel createLabeledSlider(String label, JSlider slider, JTextField field) {
+        JPanel panel = new JPanel(new BorderLayout(5, 5));
+        panel.add(new JLabel(label), BorderLayout.WEST);
+        panel.add(slider, BorderLayout.CENTER);
+        panel.add(field, BorderLayout.EAST);
+        return panel;
+    }
+
+    private void addSync(JSlider slider, JTextField field, Runnable onChange) {
+        slider.addChangeListener(e -> {
+            if (!internalUpdate) {
+                field.setText(String.valueOf(slider.getValue()));
+                onChange.run();
+            }
+        });
+
+        field.addActionListener(e -> {
+            if (!internalUpdate) {
                 try {
                     int val = Integer.parseInt(field.getText());
-                    val = Math.max(min, Math.min(max, val));
                     slider.setValue(val);
-                    if (listener != null) listener.run();
-                } catch (NumberFormatException ignored) {}
-            });
+                    onChange.run();
+                } catch (NumberFormatException ex) {
+                    field.setText(String.valueOf(slider.getValue()));
+                }
+            }
+        });
+    }
+
+    private void setColor(Color color, String sourceModel) {
+        if (internalUpdate) return;
+        internalUpdate = true;
+
+        int r = color.getRed();
+        int g = color.getGreen();
+        int b = color.getBlue();
+
+        if (!sourceModel.equals("RGB")) {
+            rSlider.setValue(r);
+            gSlider.setValue(g);
+            bSlider.setValue(b);
+            rField.setText(String.valueOf(r));
+            gField.setText(String.valueOf(g));
+            bField.setText(String.valueOf(b));
         }
 
-        void addListener(Runnable r) { this.listener = r; }
-        void trigger() { if (listener != null) listener.run(); }
-        int getValue() { return slider.getValue(); }
-        void setValue(int v) {
-            slider.setValue(v);
-            field.setText(String.valueOf(v));
+        if (!sourceModel.equals("CMYK")) {
+            float[] cmyk = ColorConverter.rgbToCmyk(r, g, b);
+            int C = Math.round(cmyk[0] * 100);
+            int M = Math.round(cmyk[1] * 100);
+            int Y = Math.round(cmyk[2] * 100);
+            int K = Math.round(cmyk[3] * 100);
+
+            cSlider.setValue(C);
+            mSlider.setValue(M);
+            ySlider.setValue(Y);
+            kSlider.setValue(K);
+
+            cField.setText(String.valueOf(C));
+            mField.setText(String.valueOf(M));
+            yField.setText(String.valueOf(Y));
+            kField.setText(String.valueOf(K));
         }
+
+        if (!sourceModel.equals("HSV")) {
+            float[] hsv = ColorConverter.rgbToHsv(r, g, b);
+            int H = Math.round(hsv[0]);
+            int S = Math.round(hsv[1] * 100);
+            int V = Math.round(hsv[2] * 100);
+
+            hSlider.setValue(H);
+            sSlider.setValue(S);
+            vSlider.setValue(V);
+
+            hField.setText(String.valueOf(H));
+            sField.setText(String.valueOf(S));
+            vField.setText(String.valueOf(V));
+        }
+
+        colorDisplay.setBackground(color);
+        internalUpdate = false;
+    }
+
+    private void updateFromRGB() {
+        setColor(new Color(rSlider.getValue(), gSlider.getValue(), bSlider.getValue()), "RGB");
+    }
+
+    private void updateFromCMYK() {
+        float c = cSlider.getValue() / 100f;
+        float m = mSlider.getValue() / 100f;
+        float y = ySlider.getValue() / 100f;
+        float k = kSlider.getValue() / 100f;
+
+        int[] rgb = ColorConverter.cmykToRgb(c, m, y, k);
+        setColor(new Color(rgb[0], rgb[1], rgb[2]), "CMYK");
+    }
+
+    private void updateFromHSV() {
+        float h = hSlider.getValue();
+        float s = sSlider.getValue() / 100f;
+        float v = vSlider.getValue() / 100f;
+
+        int[] rgb = ColorConverter.hsvToRgb(h, s, v);
+        setColor(new Color(rgb[0], rgb[1], rgb[2]), "HSV");
+    }
+
+    private void updateFromColor(Color color) {
+        setColor(color, "ColorPicker");
     }
 
     public static void main(String[] args) {
