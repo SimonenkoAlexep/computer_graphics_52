@@ -21,36 +21,29 @@ public class ColorPickerApp extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(10, 10));
 
-        // Палитра сверху
         ColorPickerPanel palette = new ColorPickerPanel(360, 100, this::updateFromColor);
-        palette.setBorder(BorderFactory.createTitledBorder("Палитра"));
         add(palette, BorderLayout.NORTH);
 
-        // Вкладки для моделей
-        JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.addTab("RGB", createRGBPanel());
-        tabbedPane.addTab("CMYK", createCMYKPanel());
-        tabbedPane.addTab("HSV", createHSVPanel());
-
-        // Левая часть — вкладки, правая — текущий цвет
-        JPanel centerPanel = new JPanel(new BorderLayout(10, 10));
-        centerPanel.add(tabbedPane, BorderLayout.CENTER);
+        JPanel blocksPanel = new JPanel(new GridLayout(1, 3, 10, 0));
+        blocksPanel.add(createRGBPanel());
+        blocksPanel.add(createCMYKPanel());
+        blocksPanel.add(createHSVPanel());
+        add(blocksPanel, BorderLayout.CENTER);
 
         colorDisplay = new JPanel();
-        colorDisplay.setPreferredSize(new Dimension(150, 150));
+        colorDisplay.setPreferredSize(new Dimension(100, 100));
         colorDisplay.setBorder(BorderFactory.createTitledBorder("Текущий цвет"));
-        centerPanel.add(colorDisplay, BorderLayout.EAST);
-
-        add(centerPanel, BorderLayout.CENTER);
+        add(colorDisplay, BorderLayout.SOUTH);
 
         pack();
         setLocationRelativeTo(null);
         setVisible(true);
     }
 
+
     private JPanel createRGBPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JPanel panel = new JPanel(new GridLayout(3, 1));
+        panel.setBorder(BorderFactory.createTitledBorder("RGB"));
 
         rSlider = createSlider(0, 255);
         gSlider = createSlider(0, 255);
@@ -60,20 +53,20 @@ public class ColorPickerApp extends JFrame {
         gField = createTextField();
         bField = createTextField();
 
-        panel.add(createLabeledSlider("Красный", rSlider, rField));
-        panel.add(createLabeledSlider("Зелёный", gSlider, gField));
-        panel.add(createLabeledSlider("Синий", bSlider, bField));
+        panel.add(createLabeledSlider("R", rSlider, rField));
+        panel.add(createLabeledSlider("G", gSlider, gField));
+        panel.add(createLabeledSlider("B", bSlider, bField));
 
-        addSync(rSlider, rField, this::updateFromRGB);
-        addSync(gSlider, gField, this::updateFromRGB);
-        addSync(bSlider, bField, this::updateFromRGB);
+        addSync(rSlider, rField, () -> updateFromRGB());
+        addSync(gSlider, gField, () -> updateFromRGB());
+        addSync(bSlider, bField, () -> updateFromRGB());
 
         return panel;
     }
 
     private JPanel createCMYKPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JPanel panel = new JPanel(new GridLayout(4, 1));
+        panel.setBorder(BorderFactory.createTitledBorder("CMYK"));
 
         cSlider = createSlider(0, 100);
         mSlider = createSlider(0, 100);
@@ -85,22 +78,22 @@ public class ColorPickerApp extends JFrame {
         yField = createTextField();
         kField = createTextField();
 
-        panel.add(createLabeledSlider("Cyan", cSlider, cField));
-        panel.add(createLabeledSlider("Magenta", mSlider, mField));
-        panel.add(createLabeledSlider("Yellow", ySlider, yField));
-        panel.add(createLabeledSlider("Black", kSlider, kField));
+        panel.add(createLabeledSlider("C", cSlider, cField));
+        panel.add(createLabeledSlider("M", mSlider, mField));
+        panel.add(createLabeledSlider("Y", ySlider, yField));
+        panel.add(createLabeledSlider("K", kSlider, kField));
 
-        addSync(cSlider, cField, this::updateFromCMYK);
-        addSync(mSlider, mField, this::updateFromCMYK);
-        addSync(ySlider, yField, this::updateFromCMYK);
-        addSync(kSlider, kField, this::updateFromCMYK);
+        addSync(cSlider, cField, () -> updateFromCMYK());
+        addSync(mSlider, mField, () -> updateFromCMYK());
+        addSync(ySlider, yField, () -> updateFromCMYK());
+        addSync(kSlider, kField, () -> updateFromCMYK());
 
         return panel;
     }
 
     private JPanel createHSVPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JPanel panel = new JPanel(new GridLayout(3, 1));
+        panel.setBorder(BorderFactory.createTitledBorder("HSV"));
 
         hSlider = createSlider(0, 360);
         sSlider = createSlider(0, 100);
@@ -110,21 +103,23 @@ public class ColorPickerApp extends JFrame {
         sField = createTextField();
         vField = createTextField();
 
-        panel.add(createLabeledSlider("Hue", hSlider, hField));
-        panel.add(createLabeledSlider("Saturation", sSlider, sField));
-        panel.add(createLabeledSlider("Value", vSlider, vField));
+        panel.add(createLabeledSlider("H", hSlider, hField));
+        panel.add(createLabeledSlider("S", sSlider, sField));
+        panel.add(createLabeledSlider("V", vSlider, vField));
 
-        addSync(hSlider, hField, this::updateFromHSV);
-        addSync(sSlider, sField, this::updateFromHSV);
-        addSync(vSlider, vField, this::updateFromHSV);
+        addSync(hSlider, hField, () -> updateFromHSV());
+        addSync(sSlider, sField, () -> updateFromHSV());
+        addSync(vSlider, vField, () -> updateFromHSV());
 
         return panel;
     }
+
 
     private JSlider createSlider(int min, int max) {
         JSlider slider = new JSlider(min, max);
         slider.setMajorTickSpacing((max - min) / 5);
         slider.setPaintTicks(true);
+        slider.setPaintLabels(true);
         return slider;
     }
 
@@ -161,6 +156,7 @@ public class ColorPickerApp extends JFrame {
         });
     }
 
+
     private void setColor(Color color, String sourceModel) {
         if (internalUpdate) return;
         internalUpdate = true;
@@ -169,6 +165,7 @@ public class ColorPickerApp extends JFrame {
         int g = color.getGreen();
         int b = color.getBlue();
 
+        // RGB
         if (!sourceModel.equals("RGB")) {
             rSlider.setValue(r);
             gSlider.setValue(g);
@@ -178,6 +175,7 @@ public class ColorPickerApp extends JFrame {
             bField.setText(String.valueOf(b));
         }
 
+        // CMYK
         if (!sourceModel.equals("CMYK")) {
             float[] cmyk = ColorConverter.rgbToCmyk(r, g, b);
             int C = Math.round(cmyk[0] * 100);
@@ -196,6 +194,7 @@ public class ColorPickerApp extends JFrame {
             kField.setText(String.valueOf(K));
         }
 
+        // HSV
         if (!sourceModel.equals("HSV")) {
             float[] hsv = ColorConverter.rgbToHsv(r, g, b);
             int H = Math.round(hsv[0]);
